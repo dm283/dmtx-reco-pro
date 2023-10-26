@@ -13,7 +13,8 @@ import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
 
 
 SOURCE_FOLDER = 'Source_file'
-SOURCE_PDF_FILE = os.path.join(SOURCE_FOLDER, os.listdir(SOURCE_FOLDER)[0])
+oslistdir = [f for f in os.listdir(SOURCE_FOLDER) if f.partition('.')[2]!='txt'] # remove service-file.txt
+SOURCE_PDF_FILE = os.path.join(SOURCE_FOLDER, oslistdir[0])
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 
 COUNTER = int()
@@ -38,18 +39,18 @@ os.mkdir(JPG_FILES_FOLDER)
 shutil.copy(SOURCE_PDF_FILE, SOURCE_PDF_FILE_FOLDER)
 
 
-def folder_is_empty_check(folder):
-    # checks folder is empty
-    if len( os.listdir(folder) ) > 0:
-        print(f'folder [{folder}] is not empty! -> app is stopped')
-        sys.exit()
+# def folder_is_empty_check(folder):
+#     # checks folder is empty
+#     if len( os.listdir(folder) ) > 0:
+#         print(f'folder [{folder}] is not empty! -> app is stopped')
+#         sys.exit()
 
 
-def file_exists_check(file):
-    # checks file exists
-    if os.path.exists(file):
-        print(f'file [{file}] exists! -> app is stopped')
-        sys.exit()
+# def file_exists_check(file):
+#     # checks file exists
+#     if os.path.exists(file):
+#         print(f'file [{file}] exists! -> app is stopped')
+#         sys.exit()
 
 
 def split_pdf_to_pages(source_pdf_file):
@@ -123,9 +124,9 @@ def decode_jpg_dmtx():
 
 
 ############
-folder_is_empty_check(PDF_PAGES_FOLDER)
-folder_is_empty_check(JPG_FILES_FOLDER)
-file_exists_check(RES_CSV_FILE)
+# folder_is_empty_check(PDF_PAGES_FOLDER)
+# folder_is_empty_check(JPG_FILES_FOLDER)
+# file_exists_check(RES_CSV_FILE)
 
 split_pdf_to_pages(SOURCE_PDF_FILE)
 convert_pdf_to_jpg()
