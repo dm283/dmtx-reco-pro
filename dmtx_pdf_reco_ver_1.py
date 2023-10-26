@@ -12,7 +12,7 @@ from pdf2image import convert_from_path
 import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
 
 
-SOURCE_FOLDER = 'Source_pdf_file'
+SOURCE_FOLDER = 'Source_file'
 SOURCE_PDF_FILE = os.path.join(SOURCE_FOLDER, os.listdir(SOURCE_FOLDER)[0])
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 
@@ -120,6 +120,7 @@ def decode_jpg_dmtx():
     print(f'ok. decoded { len(general_decode_list) } datamartixes')
 
     return general_decode_list
+
 
 ############
 folder_is_empty_check(PDF_PAGES_FOLDER)
