@@ -124,10 +124,6 @@ def decode_jpg_dmtx():
 
 
 ############
-# folder_is_empty_check(PDF_PAGES_FOLDER)
-# folder_is_empty_check(JPG_FILES_FOLDER)
-# file_exists_check(RES_CSV_FILE)
-
 split_pdf_to_pages(SOURCE_PDF_FILE)
 convert_pdf_to_jpg()
 
