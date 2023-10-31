@@ -79,8 +79,8 @@ def convert_pdf_to_jpg():
     for file in pdf_files:
         print(file, end='\r')
         image = convert_from_path( os.path.join(PDF_PAGES_FOLDER, file) )
-        COUNTER += 1
         image[0].save(f'{JPG_FILES_FOLDER}/page'+ str(COUNTER) +'.jpg', 'JPEG')
+        COUNTER += 1
     print(f'ok. converted {COUNTER} files')
 
 
