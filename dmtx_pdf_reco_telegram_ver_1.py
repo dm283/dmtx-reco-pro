@@ -22,26 +22,16 @@ logging.basicConfig(
 )
 
 BOT_TOKEN = '5690693191:AAHBTNpQDPqtJaWeHM5I9NAotBY4JZuGkaA'
-# CHAT_ID = '5650214790'
-
-# SOURCE_FOLDER = 'Source_file'
 PROCESSINGS_COMMON_FOLDER = 'Processings'
-# if not os.path.exists(SOURCE_FOLDER):
-#     os.mkdir(SOURCE_FOLDER)
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
 
 
-#oslistdir = [f for f in os.listdir(SOURCE_FOLDER) if f.partition('.')[2]!='txt'] # remove service-file.txt from list
-#SOURCE_PDF_FILE = os.path.join(SOURCE_FOLDER, oslistdir[0])
-
-
-COUNTER = int()
 TIMEOUT_DMTX_DECODE = 100  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
 log_dict = dict()
 
 def create_processing_folders():
-    #
+    # creates folders for current processing
     current_processing_folder = datetime.datetime.now().strftime('%Y-%m-%d %H.%M.%S')
     processing_folder = os.path.join(PROCESSINGS_COMMON_FOLDER, current_processing_folder)
     if os.path.exists(processing_folder):
@@ -56,23 +46,8 @@ def create_processing_folders():
     os.mkdir(source_pdf_file_folder)
     os.mkdir(pdf_pages_folder)
     os.mkdir(jpg_files_folder)
-    # shutil.copy(SOURCE_PDF_FILE, source_pdf_file_folder)
 
     return source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file
-
-
-# def folder_is_empty_check(folder):
-#     # checks folder is empty
-#     if len( os.listdir(folder) ) > 0:
-#         print(f'folder [{folder}] is not empty! -> app is stopped')
-#         sys.exit()
-
-
-# def file_exists_check(file):
-#     # checks file exists
-#     if os.path.exists(file):
-#         print(f'file [{file}] exists! -> app is stopped')
-#         sys.exit()
 
 
 def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
@@ -92,7 +67,7 @@ def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
 
 def convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder):
     # convert pdf pages to jpg files
-    global COUNTER
+    counter = int()
 
     pdf_files = os.listdir(pdf_pages_folder)
     pdf_files.sort(key=lambda x: int(x.partition('.')[0]))
@@ -101,9 +76,9 @@ def convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder):
     for file in pdf_files:
         print(file, end='\r')
         image = convert_from_path( os.path.join(pdf_pages_folder, file) )
-        COUNTER += 1
-        image[0].save(f'{jpg_files_folder}/page'+ str(COUNTER) +'.jpg', 'JPEG')
-    print(f'ok. converted {COUNTER} files')
+        counter += 1
+        image[0].save(f'{jpg_files_folder}/page'+ str(counter) +'.jpg', 'JPEG')
+    print(f'ok. converted {counter} files')
 
 
 def save_list_to_csv(source_list, res_csv_file):
