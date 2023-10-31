@@ -25,10 +25,8 @@ BOT_TOKEN = '5690693191:AAHBTNpQDPqtJaWeHM5I9NAotBY4JZuGkaA'
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
-
-
 TIMEOUT_DMTX_DECODE = 100  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
-log_dict = dict()
+
 
 def create_processing_folders():
     # creates folders for current processing
@@ -92,12 +90,12 @@ def save_list_to_csv(source_list, res_csv_file):
     print(f'ok. saved to {res_csv_file} file')
 
 
-def save_log(log, log_file):
+def save_log(log_dict, log_file):
     # save file - res records
     print('saving logs ...', end=' ')
     with open(log_file, 'w') as f:
-        for k in log:
-            rec = f'{k} - decoded {len(log[k])} datamatrixes' + '\n'
+        for k in log_dict:
+            rec = f'{k} - decoded {len(log_dict[k])} datamatrixes' + '\n'
             f.write(rec)
     print(f'ok. saved to {log_file} file')
 
@@ -105,6 +103,7 @@ def save_log(log, log_file):
 def decode_jpg_dmtx(jpg_files_folder):
     #  decodes datamatrix form jpg file
     general_decode_list = list()
+    log_dict = dict()
     jpg_files = os.listdir(jpg_files_folder)
     jpg_files.sort(key=lambda x: int(x.partition('.')[0][4:]))
 
@@ -117,7 +116,7 @@ def decode_jpg_dmtx(jpg_files_folder):
         general_decode_list += decode_list
     print(f'ok. decoded { len(general_decode_list) } datamartixes')
 
-    return general_decode_list
+    return general_decode_list, log_dict
 
 
 async def send_file(update, context, file_name):
@@ -156,7 +155,7 @@ async def receive_file(update, context):
     # incoming pdf file handling and decoding of datamatrixes
     split_pdf_to_pages(source_pdf_file, pdf_pages_folder)
     convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder)
-    general_decode_list = decode_jpg_dmtx(jpg_files_folder)
+    general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder)
     save_list_to_csv(general_decode_list, res_csv_file)
     save_log(log_dict, log_file)
 
