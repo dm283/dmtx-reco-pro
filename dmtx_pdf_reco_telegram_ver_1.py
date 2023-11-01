@@ -6,11 +6,10 @@
 # save_list_to_csv() сохраняет результаты декодирования в csv-файл
 # save_log() логирует работу скрипта
 
-import os, sys, random, shutil
+import os, sys, random
 from pikepdf import Pdf
 from pdf2image import convert_from_path
 import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
-
 import logging, time
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackContext
@@ -25,7 +24,6 @@ BOT_TOKEN = '5690693191:AAHBTNpQDPqtJaWeHM5I9NAotBY4JZuGkaA'
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
-TIMEOUT_DMTX_DECODE = 100  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
 
 
 def create_processing_folders():
@@ -100,7 +98,7 @@ def save_log(log_dict, log_file):
     print(f'ok. saved to {log_file} file')
 
 
-def decode_jpg_dmtx(jpg_files_folder):
+def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode):
     #  decodes datamatrix form jpg file
     general_decode_list = list()
     log_dict = dict()
@@ -111,7 +109,7 @@ def decode_jpg_dmtx(jpg_files_folder):
     for file in jpg_files:
         print(file, end='\r')
         image = cv2.imread( os.path.join(jpg_files_folder, file) )
-        decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=TIMEOUT_DMTX_DECODE) ]
+        decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=timeout_dmtx_decode) ]
         log_dict[file] = decode_list
         general_decode_list += decode_list
     print(f'ok. decoded { len(general_decode_list) } datamartixes')
@@ -119,51 +117,78 @@ def decode_jpg_dmtx(jpg_files_folder):
     return general_decode_list, log_dict
 
 
-async def send_file(update, context, file_name):
-    # 
-    with open(file_name, 'rb') as f:
-        await context.bot.send_document(chat_id=update.message.chat_id, document=f)
+def timeout_count(caption):
+    # checks correct format of caption and estimates timeout for dmtx decoding
+    try:
+        dmtx_cnt_per_page = int(caption)
+        if dmtx_cnt_per_page < 1:
+            raise Exception
+    except:
+        return 'err', None
+
+    #TIMEOUT_DMTX_DECODE = 2000  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
+    if dmtx_cnt_per_page <= 20:
+        timeout_dmtx_decode = 2000
+    if dmtx_cnt_per_page <= 10:
+        timeout_dmtx_decode = 500
+    if dmtx_cnt_per_page <= 5:
+        timeout_dmtx_decode = 100
+    if dmtx_cnt_per_page > 20:
+        timeout_dmtx_decode = None
+    print(f'dmtx_quantity = {dmtx_cnt_per_page}  timeout = {timeout_dmtx_decode}')
+
+    return 'ok', timeout_dmtx_decode
 
 
-async def receive_file(update, context):
-    #
+async def run_script(update, context):
+    # main function
     msg = update.message
 
     if not msg.document:
-        message_text = 'отправьте файл pdf'
+        message_text = 'ошибка. отправьте файл pdf'
         print(message_text)
         await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
         return 1
     
     if msg.document.mime_type != 'application/pdf':
-        message_text = 'некорректный тип файла, не pdf'
+        message_text = 'ошибка. некорректный тип файла, не pdf'
         print(message_text)
         await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
         return 1
 
+    caption = msg.caption
+    res, timeout_dmtx_decode = timeout_count(caption)
+    if res == 'err':
+        message_text = 'ошибка. в подписи к файлу не указано/ошибочное кол-во элементов на странице'
+        print(message_text)
+        await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
+        return 1
+
+    print('run script')
     source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file = create_processing_folders()
 
+    # download file from telegram
     f = await context.bot.get_file(update.message.document)
     source_pdf_file = os.path.join(source_pdf_file_folder, msg.document.file_name)
     await f.download_to_drive(custom_path=source_pdf_file)
-
     message_text = 'принято. ожидайте ответа'
     print(message_text)
     await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
 
-    
     # incoming pdf file handling and decoding of datamatrixes
     split_pdf_to_pages(source_pdf_file, pdf_pages_folder)
     convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder)
-    general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder)
+    general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode)
     save_list_to_csv(general_decode_list, res_csv_file)
     save_log(log_dict, log_file)
 
-    await send_file(update, context, file_name=res_csv_file)
+    # sends outcome file from bot to customer
+    with open(res_csv_file, 'rb') as f:
+        await context.bot.send_document(chat_id=update.message.chat_id, document=f)
 
 
 ##################
 if __name__ == '__main__':
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(MessageHandler(~filters.COMMAND, receive_file))
+    app.add_handler(MessageHandler(~filters.COMMAND, run_script))
     app.run_polling()
