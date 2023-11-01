@@ -12,13 +12,35 @@ from pdf2image import convert_from_path
 import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
 
 
+try:
+    DMTX_QUANTITY = int(sys.argv[1])
+    if DMTX_QUANTITY < 1:
+        raise Exception
+    print(DMTX_QUANTITY)
+except:
+    print("ошибка - не указан или указан ошибочно аргумент 'кол-во элементов на странице'")
+    print("скрипт завершен")
+    sys.exit()
+
+#TIMEOUT_DMTX_DECODE = 2000  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
+if DMTX_QUANTITY <= 20:
+    TIMEOUT_DMTX_DECODE = 2000
+if DMTX_QUANTITY <= 10:
+    TIMEOUT_DMTX_DECODE = 500
+if DMTX_QUANTITY <= 5:
+    TIMEOUT_DMTX_DECODE = 100
+if DMTX_QUANTITY > 20:
+    TIMEOUT_DMTX_DECODE = None
+print(f'dmtx_quantity = {DMTX_QUANTITY}  timeout = {TIMEOUT_DMTX_DECODE}')
+
+print('run script')
+
 SOURCE_FOLDER = 'Source_file'
 oslistdir = [f for f in os.listdir(SOURCE_FOLDER) if f.partition('.')[2]!='txt'] # remove service-file.txt
 SOURCE_PDF_FILE = os.path.join(SOURCE_FOLDER, oslistdir[0])
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 
 COUNTER = int()
-TIMEOUT_DMTX_DECODE = 100  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
 log_dict = dict()
 
 current_processing_folder = datetime.datetime.now().strftime('%Y-%m-%d %H.%M.%S')
@@ -37,20 +59,6 @@ os.mkdir(SOURCE_PDF_FILE_FOLDER)
 os.mkdir(PDF_PAGES_FOLDER)
 os.mkdir(JPG_FILES_FOLDER)
 shutil.copy(SOURCE_PDF_FILE, SOURCE_PDF_FILE_FOLDER)
-
-
-# def folder_is_empty_check(folder):
-#     # checks folder is empty
-#     if len( os.listdir(folder) ) > 0:
-#         print(f'folder [{folder}] is not empty! -> app is stopped')
-#         sys.exit()
-
-
-# def file_exists_check(file):
-#     # checks file exists
-#     if os.path.exists(file):
-#         print(f'file [{file}] exists! -> app is stopped')
-#         sys.exit()
 
 
 def split_pdf_to_pages(source_pdf_file):
