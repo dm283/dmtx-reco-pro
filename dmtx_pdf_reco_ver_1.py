@@ -61,6 +61,11 @@ os.mkdir(JPG_FILES_FOLDER)
 shutil.copy(SOURCE_PDF_FILE, SOURCE_PDF_FILE_FOLDER)
 
 
+# JPG_FILES_FOLDER = 'Source_files_jpg/jpg_unrecognized'
+# RES_CSV_FILE = 'Source_files_jpg/res_decoded_dmtx.csv'
+# LOG_FILE = 'Source_files_jpg/log.txt'
+
+
 def split_pdf_to_pages(source_pdf_file):
     # load source pdf file and split it to distinct pages
     print('load pdf file ...', end=' ')
@@ -121,9 +126,25 @@ def decode_jpg_dmtx():
 
     print('decoding datamartixes ...')
     for file in jpg_files:
-        print(file, end='\r')
+        print(file)
+        # print(file, end='\r')
         image = cv2.imread( os.path.join(JPG_FILES_FOLDER, file) )
-        decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=TIMEOUT_DMTX_DECODE) ]
+        # decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=TIMEOUT_DMTX_DECODE) ]
+
+        timeout = TIMEOUT_DMTX_DECODE
+        decode_list = list()
+        TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
+        timeout_list_pointer = TIMEOUT_LIST.index(TIMEOUT_DMTX_DECODE)
+        while len(decode_list) < DMTX_QUANTITY:
+            decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=timeout) ]
+            print(decode_list)
+            if len(decode_list) < DMTX_QUANTITY:
+                timeout_list_pointer += 1
+                timeout = TIMEOUT_LIST[timeout_list_pointer]
+                print(file)
+                print(f'increase timeout to {timeout}')
+
+
         log_dict[file] = decode_list
         general_decode_list += decode_list
     print(f'ok. decoded { len(general_decode_list) } datamartixes')
