@@ -15,13 +15,13 @@ async def main():
     
     async with bot:
         print(await bot.get_me())
-        #print(await bot.get_updates())
+        print(await bot.get_updates())
         #file_id = 'BQACAgUAAxkBAAIDV2VDkqv70KZ3ZPhwI7pPw6tebZBiAAKmDwACVqkYVtuJp-KuvCPeMAQ'  #file_name='dmtx-1per4.pdf'
-        file_id='BQACAgUAAxkBAAIDWGVDlRmCsaDi6nm-KCXhC316wHDxAAKpDwACVqkYVl8wzIXCNrhCMAQ'   # Binder1
-        f = await bot.get_file(file_id=file_id)
-        await f.download_to_drive(
-            read_timeout=1000.0
-            )
+        # file_id='BQACAgUAAxkBAAIDWGVDlRmCsaDi6nm-KCXhC316wHDxAAKpDwACVqkYVl8wzIXCNrhCMAQ'   # Binder1
+        # f = await bot.get_file(file_id=file_id)
+        # await f.download_to_drive(
+        #     read_timeout=1000.0
+        #     )
         # print(await bot.log_out())
 
 

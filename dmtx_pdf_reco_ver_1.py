@@ -23,6 +23,8 @@ except:
     sys.exit()
 
 #TIMEOUT_DMTX_DECODE = 2000  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
+TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
+
 if DMTX_QUANTITY <= 20:
     TIMEOUT_DMTX_DECODE = 2000
 if DMTX_QUANTITY <= 10:
@@ -126,24 +128,28 @@ def decode_jpg_dmtx():
 
     print('decoding datamartixes ...')
     for file in jpg_files:
-        print(file)
+        print(file, end=' ')
         # print(file, end='\r')
         image = cv2.imread( os.path.join(JPG_FILES_FOLDER, file) )
         # decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=TIMEOUT_DMTX_DECODE) ]
 
         timeout = TIMEOUT_DMTX_DECODE
         decode_list = list()
-        TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
+        # TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
         timeout_list_pointer = TIMEOUT_LIST.index(TIMEOUT_DMTX_DECODE)
         while len(decode_list) < DMTX_QUANTITY:
             decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=timeout) ]
-            print(decode_list)
+            print( 'decoded elements =', len(decode_list) )
             if len(decode_list) < DMTX_QUANTITY:
                 timeout_list_pointer += 1
-                timeout = TIMEOUT_LIST[timeout_list_pointer]
-                print(file)
-                print(f'increase timeout to {timeout}')
 
+                if (timeout_list_pointer + 1) <= len(TIMEOUT_LIST):
+                    timeout = TIMEOUT_LIST[timeout_list_pointer]
+                    print(file, f'increase timeout to {timeout}')
+                    print(file, end=' ')
+                else:
+                    print(file, 'maximum timeout')
+                    break
 
         log_dict[file] = decode_list
         general_decode_list += decode_list

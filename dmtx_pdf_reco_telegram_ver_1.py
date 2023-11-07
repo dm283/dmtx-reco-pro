@@ -24,6 +24,7 @@ BOT_TOKEN = '5690693191:AAHBTNpQDPqtJaWeHM5I9NAotBY4JZuGkaA'
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
+TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
 
 
 def create_processing_folders():
@@ -98,7 +99,7 @@ def save_log(log_dict, log_file):
     print(f'ok. saved to {log_file} file')
 
 
-def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode):
+def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
     #  decodes datamatrix form jpg file
     general_decode_list = list()
     log_dict = dict()
@@ -107,9 +108,30 @@ def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode):
 
     print('decoding datamartixes ...')
     for file in jpg_files:
-        print(file, end='\r')
+        # print(file, end='\r')
+        print(file, end=' ')
         image = cv2.imread( os.path.join(jpg_files_folder, file) )
-        decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=timeout_dmtx_decode) ]
+
+        # decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=timeout_dmtx_decode) ]
+
+        timeout = timeout_dmtx_decode
+        decode_list = list()
+        # TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
+        timeout_list_pointer = TIMEOUT_LIST.index(timeout_dmtx_decode)
+        while len(decode_list) < dmtx_cnt_per_page:
+            decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=timeout) ]
+            print( 'decoded elements =', len(decode_list) )
+            if len(decode_list) < dmtx_cnt_per_page:
+                timeout_list_pointer += 1
+                if (timeout_list_pointer + 1) <= len(TIMEOUT_LIST):
+                    timeout = TIMEOUT_LIST[timeout_list_pointer]
+                    print(file, f'increase timeout to {timeout}')
+                    print(file, end=' ')
+                else:
+                    print(file, 'maximum timeout')
+                    break
+
+
         log_dict[file] = decode_list
         general_decode_list += decode_list
     print(f'ok. decoded { len(general_decode_list) } datamartixes')
@@ -124,7 +146,7 @@ def timeout_count(caption):
         if dmtx_cnt_per_page < 1:
             raise Exception
     except:
-        return 'err', None
+        return 'err', None, None
 
     #TIMEOUT_DMTX_DECODE = 2000  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
     if dmtx_cnt_per_page <= 20:
@@ -137,7 +159,7 @@ def timeout_count(caption):
         timeout_dmtx_decode = None
     print(f'dmtx_quantity = {dmtx_cnt_per_page}  timeout = {timeout_dmtx_decode}')
 
-    return 'ok', timeout_dmtx_decode
+    return 'ok', timeout_dmtx_decode, dmtx_cnt_per_page
 
 
 async def run_script(update, context):
@@ -157,7 +179,7 @@ async def run_script(update, context):
         return 1
 
     caption = msg.caption
-    res, timeout_dmtx_decode = timeout_count(caption)
+    res, timeout_dmtx_decode, dmtx_cnt_per_page = timeout_count(caption)
     if res == 'err':
         message_text = 'ошибка. в подписи к файлу не указано/ошибочное кол-во элементов на странице'
         print(message_text)
@@ -178,7 +200,7 @@ async def run_script(update, context):
     # incoming pdf file handling and decoding of datamatrixes
     split_pdf_to_pages(source_pdf_file, pdf_pages_folder)
     convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder)
-    general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode)
+    general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page)
     save_list_to_csv(general_decode_list, res_csv_file)
     save_log(log_dict, log_file)
 
@@ -189,6 +211,11 @@ async def run_script(update, context):
 
 ##################
 if __name__ == '__main__':
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    # app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder()
+    app = app.token(BOT_TOKEN)
+    app = app.base_url('http://localhost:8081/bot')
+    app = app.base_file_url('http://localhost:8081/file/bot')
+    app = app.build()
     app.add_handler(MessageHandler(~filters.COMMAND, run_script))
     app.run_polling()
