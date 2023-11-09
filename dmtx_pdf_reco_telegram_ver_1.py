@@ -191,7 +191,7 @@ async def run_script(update, context):
     # download file from telegram
     f = await context.bot.get_file(update.message.document)
     source_pdf_file = os.path.join(source_pdf_file_folder, msg.document.file_name)
-    await f.download_to_drive(custom_path=source_pdf_file)
+    await f.download_to_drive(custom_path=source_pdf_file, read_timeout=2000.0)
     message_text = 'принято. ожидайте ответа'
     print(message_text)
     await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
