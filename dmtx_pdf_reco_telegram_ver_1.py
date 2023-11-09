@@ -20,7 +20,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-BOT_TOKEN = '5690693191:AAHBTNpQDPqtJaWeHM5I9NAotBY4JZuGkaA'
+BOT_TOKEN = '5689201759:AAGIXOzYmqnQ6rLWX2lO8gJmiJf1dXRZOEk'  #https://t.me/notebook283_bot [dm_osh]
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
@@ -211,11 +211,11 @@ async def run_script(update, context):
 
 ##################
 if __name__ == '__main__':
-    # app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app = ApplicationBuilder()
-    app = app.token(BOT_TOKEN)
-    app = app.base_url('http://localhost:8081/bot')
-    app = app.base_file_url('http://localhost:8081/file/bot')
-    app = app.build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    # app = ApplicationBuilder()
+    # app = app.token(BOT_TOKEN)
+    # app = app.base_url('http://localhost:8081/bot')
+    # app = app.base_file_url('http://localhost:8081/file/bot')
+    # app = app.build()
     app.add_handler(MessageHandler(~filters.COMMAND, run_script))
     app.run_polling()

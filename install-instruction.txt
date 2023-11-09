@@ -1,0 +1,6 @@
+problem "could not find module 'libdmtx-32.dll'" -
+If you see an ugly ImportError when importing pylibdmtx on Windows you will most likely need the Visual C++ Redistributable Packages for Visual Studio 2013. Install vcredist_x64.exe if using 64-bit Python
+https://www.microsoft.com/en-US/download/details.aspx?id=40784
+
+add to environments variables - path to ...\poppler-23.08.0\Library\bin\
+
