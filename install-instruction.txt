@@ -1,6 +1,35 @@
+1) git clone https://github.com/dm283/dmtx-reco-pro.git
+2) cd dmtx-reco-pro
+3) python -m venv venv
+4) venv\Scripts\activate
+5) pip install -r requirements.txt
+6) add to system environments variables path to ...\poppler-23.08.0\Library\bin\
+7) restart powershell
+8) copy config_template.ini to config.ini and set up bot_token
+9) install & setup local telegram server:
+    1) instruction for installation of local telegram server  -  https://github.com/tdlib/telegram-bot-api
+    2) obtain api-id & api-hash  -  https://my.telegram.org/auth ( "API development tools")
+    3) run local telegram server:
+        ...\telegram-bot-api\bin> .\telegram-bot-api.exe --api-id={api_id} --api-hash={api-hash} --local
+    4) if bot is logged in api.telegram.org  -> log out it (uncomment this method in telegram-api-requests.py and run it)
+    5) try log in to local server (telegram-api-requests.py)
+    bot = telegram.Bot(
+        token=BOT_TOKEN, 
+        base_url='http://localhost:8081/bot',
+        local_mode=True,
+        base_file_url='http://localhost:8081/file/bot'
+        )
+10) run dmtx_pdf_reco_telegram_ver_1.py
+11) in telegram find work-bot-13
+12) send to bot pdf-file with a caption where set quantity of elements per page
+
+
+=== work with dmtx_pdf_reco.py === 
+1) set up pdf-file to folder Source_file (check is there empty file 'service-file.txt')
+2) python dmtx_pdf_reco.py {quantity of elements per page}
+
+
+=== possible issues ===
 problem "could not find module 'libdmtx-32.dll'" -
 If you see an ugly ImportError when importing pylibdmtx on Windows you will most likely need the Visual C++ Redistributable Packages for Visual Studio 2013. Install vcredist_x64.exe if using 64-bit Python
 https://www.microsoft.com/en-US/download/details.aspx?id=40784
-
-add to environments variables - path to ...\poppler-23.08.0\Library\bin\
-

@@ -1,26 +1,25 @@
-# it's necessary to download 'poppler' for Windows and define system PATH
-# в папку SOURCE_PDF_FILE_FOLDER помещается pdf-файл с датаматриксами
-# split_pdf_to_pages() загружает pdf-файл и разбивает его на отдельные страницы (pdf-файлы), сохраняя их в папку PDF_PAGES_FOLDER
-# convert_pdf_to_jpg() конвертирует pdf-файлы в jpg и сохраняет их в папку JPG_FILES_FOLDER
-# decode_jpg_dmtx() загружает jpg-файлы из JPG_FILES_FOLDER и декодирует датаматриксы из них
-# save_list_to_csv() сохраняет результаты декодирования в csv-файл
-# save_log() логирует работу скрипта
-
-import os, sys, random
+import os, sys, random, configparser, logging, time
 from pikepdf import Pdf
 from pdf2image import convert_from_path
 import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
-import logging, time
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import ApplicationBuilder, MessageHandler, filters
+from pathlib import Path
 
+config = configparser.ConfigParser()
+config_file = os.path.join(Path(__file__).resolve().parent, 'config.ini')
+if os.path.exists(config_file):
+  config.read(config_file, encoding='utf-8')
+else:
+  print("error! config file doesn't exist"); sys.exit()
+
+BOT_TOKEN = config['telegram_bot']['bot_token']
+TELEGRAM_SERVER = config['telegram_bot']['telegram_server']
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-BOT_TOKEN = '5689201759:AAGIXOzYmqnQ6rLWX2lO8gJmiJf1dXRZOEk'  #https://t.me/notebook283_bot [dm_osh]
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
@@ -211,11 +210,13 @@ async def run_script(update, context):
 
 ##################
 if __name__ == '__main__':
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    # app = ApplicationBuilder()
-    # app = app.token(BOT_TOKEN)
-    # app = app.base_url('http://localhost:8081/bot')
-    # app = app.base_file_url('http://localhost:8081/file/bot')
-    # app = app.build()
+    if TELEGRAM_SERVER == 'official':
+        app = ApplicationBuilder().token(BOT_TOKEN).build()
+    elif TELEGRAM_SERVER == 'local':
+        app = ApplicationBuilder()
+        app = app.token(BOT_TOKEN)
+        app = app.base_url('http://localhost:8081/bot')
+        app = app.base_file_url('http://localhost:8081/file/bot')
+        app = app.build()
     app.add_handler(MessageHandler(~filters.COMMAND, run_script))
     app.run_polling()
