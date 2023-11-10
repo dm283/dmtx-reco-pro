@@ -198,6 +198,19 @@ async def run_script(update, context):
 
     msg = update.message
 
+    if msg.text == 'help':
+            message_text = ('алгоритм работы с ботом:\n- отправьте pdf-файл с указанием кол-ва элементов на стр.\n' +
+                '- если вы забыли указать кол-во, отправьте его следующим сообщением\n' +
+                '- для обнуления введенных данных отправьте new')
+            print(message_text)
+            await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
+            return 0
+
+    if msg.text == 'new':
+        BOT_STATUS = 'file_wait'
+        BOT_DOCUMENT = ''
+        return 0
+
     if BOT_STATUS == 'file_wait':
         if not msg.document or msg.document.mime_type != 'application/pdf':
             message_text = 'ошибка. отправьте файл pdf'
