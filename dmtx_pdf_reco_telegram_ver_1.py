@@ -23,7 +23,7 @@ logging.basicConfig(
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
-TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
+TIMEOUT_LIST = [100, 500, 2000, ] # 5000, 10000, 20000, 30000, 50000, None]
 
 BOT_STATUS = 'file_wait'
 BOT_DOCUMENT = ''
@@ -40,13 +40,14 @@ def create_processing_folders():
     jpg_files_folder = os.path.join(processing_folder, '3_jpg_files')
     res_csv_file = os.path.join(processing_folder, 'res_decoded_dmtx.csv')
     log_file = os.path.join(processing_folder, 'log.txt')
+    report_file = os.path.join(processing_folder, 'bot_report.txt')
 
     os.mkdir(processing_folder)
     os.mkdir(source_pdf_file_folder)
     os.mkdir(pdf_pages_folder)
     os.mkdir(jpg_files_folder)
 
-    return source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file
+    return source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, report_file
 
 
 def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
@@ -99,6 +100,63 @@ def save_log(log_dict, log_file):
             rec = f'{k} - decoded {len(log_dict[k])} datamatrixes' + '\n'
             f.write(rec)
     print(f'ok. saved to {log_file} file')
+
+
+def makeup_report(log_dict, dmtx_cnt_per_page, report_file):
+    # makes up a report with quantity of un-/successful handlings of pages
+    cnt_pages = int()
+    cnt_elems = int()
+    wrong_pages_list = list()
+    cnt_unreco_partly = int()
+    cnt_unreco_totally = int()
+    substr_report_unreco_pages = str()
+    substr_report_decoded_elems = str()
+
+    for k in log_dict:
+        cnt_pages += 1
+        cnt_decoded_elems = len(log_dict[k])
+        cnt_elems += cnt_decoded_elems
+        if cnt_decoded_elems < dmtx_cnt_per_page:
+            page_name = k.partition('.')[0][4:]
+            wrong_pages_list.append(page_name)
+            substr_report_unreco_pages += f'[ page-{page_name} ]:  {cnt_decoded_elems}\n'
+
+            substr_elems_list = str()
+            for n, e in enumerate(log_dict[k]):
+                s = f"\n{' '*12+' '*len(page_name)}" if n > 0 else ''
+                substr_elems_list += f'{s}{n}) {e}'
+
+            substr_report_decoded_elems += f'[ page-{page_name} ]:  {substr_elems_list}'
+            if cnt_decoded_elems == 0:
+                cnt_unreco_totally += 1
+            else:
+                cnt_unreco_partly += 1
+            
+
+    report_text = f"""=== ОТЧЕТ БОТА ===
+обработано {cnt_pages} страниц по {dmtx_cnt_per_page} элементов
+распознано {cnt_elems} элементов
+распознано полностью {cnt_pages - cnt_unreco_partly - cnt_unreco_totally} страниц
+распознано частично {cnt_unreco_partly} страниц
+нераспознано {cnt_unreco_totally} страниц
+
+нераспознанные/частично распознанные страницы c кол-вом успешно распознанных элементов:
+{substr_report_unreco_pages}
+распознанные элементы на частично распознанных страницах:
+{substr_report_decoded_elems}
+"""
+    with open(report_file, 'w') as f:
+        f.write(report_text)
+
+    return report_text, wrong_pages_list
+
+    
+    # print('make up a report ...', end=' ')
+    # with open(log_file, 'w') as f:
+    #     for k in log_dict:
+    #         rec = f'{k} - decoded {len(log_dict[k])} datamatrixes' + '\n'
+    #         f.write(rec)
+    # print(f'ok. saved to {log_file} file')
 
 
 def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
@@ -260,7 +318,7 @@ async def run_script(update, context):
 
     print('run script', 'file =', BOT_DOCUMENT.file_name, 'timeout_dmtx_decode = ', timeout_dmtx_decode,
           'dmtx_cnt_per_page = ', dmtx_cnt_per_page)
-    source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file = create_processing_folders()
+    source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, report_file = create_processing_folders()
 
     # download file from telegram
     f = await context.bot.get_file(BOT_DOCUMENT)  #msg.document
@@ -277,6 +335,12 @@ async def run_script(update, context):
     general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page)
     save_list_to_csv(general_decode_list, res_csv_file)
     save_log(log_dict, log_file)
+
+    print('log_dict =', log_dict) ##
+    report_text, wrong_pages_list = makeup_report(log_dict, dmtx_cnt_per_page, report_file)
+    print(report_text)
+    print('wrong_pages_list =', wrong_pages_list)
+
 
 
     # sends outcome file from bot to customer
