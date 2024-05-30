@@ -174,7 +174,7 @@ def timeout_count(dmtx_cnt_per_page):
     if dmtx_cnt_per_page <= 5:
         timeout_dmtx_decode = 100
     if dmtx_cnt_per_page > 20:
-        timeout_dmtx_decode = None
+        timeout_dmtx_decode = 2000 # None
     print(f'dmtx_quantity = {dmtx_cnt_per_page}  timeout = {timeout_dmtx_decode}')
 
     return timeout_dmtx_decode

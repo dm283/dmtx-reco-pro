@@ -32,7 +32,7 @@ if DMTX_QUANTITY <= 10:
 if DMTX_QUANTITY <= 5:
     TIMEOUT_DMTX_DECODE = 100
 if DMTX_QUANTITY > 20:
-    TIMEOUT_DMTX_DECODE = None
+    TIMEOUT_DMTX_DECODE = 2000
 print(f'dmtx_quantity = {DMTX_QUANTITY}  timeout = {TIMEOUT_DMTX_DECODE}')
 
 print('run script')
