@@ -1,4 +1,4 @@
-import os, sys, shutil, random, configparser, logging, time
+import os, sys, shutil, random, configparser, logging, time, zipfile
 from pikepdf import Pdf
 from pdf2image import convert_from_path
 import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
@@ -111,7 +111,7 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_fold
     # makes up a report with quantity of un-/successful handlings of pages
     cnt_pages = int()
     cnt_elems = int()
-    wrong_pages_list = list()
+    # wrong_pages_list = list()
     cnt_unreco_partly = int()
     cnt_unreco_totally = int()
     substr_report_unreco_pages = str()
@@ -123,7 +123,7 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_fold
         cnt_elems += cnt_decoded_elems
         if cnt_decoded_elems < dmtx_cnt_per_page:
             page_name = k.partition('.')[0][4:]
-            wrong_pages_list.append(page_name)
+            # wrong_pages_list.append(page_name)
             substr_report_unreco_pages += f'\n[ page-{page_name} ]: {cnt_decoded_elems}'
 
             substr_elems_list = str()
@@ -137,11 +137,11 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_fold
                 cnt_unreco_partly += 1
                 substr_report_decoded_elems += f'\n[ page-{page_name} ]:    {substr_elems_list}'
             
-            # copying un/partly reco pages into sprcial folder
+            # copying un/partly recognized pages into sprcial folder
             file_name_source = f'{pdf_pages_folder}/{page_name}.pdf'
             file_name_distance = f'{undecoded_pages_folder}/{page_name}.pdf'
             if os.path.exists(file_name_source):
-                shutil.copyfile(file_name_source, file_name_distance)
+                shutil.copyfile(file_name_source, file_name_distance)            
 
     report_text = f"""=== ОТЧЕТ БОТА ===\n
 обработано страниц всего:            {cnt_pages} (по {dmtx_cnt_per_page} элемента на страницу максимально)
@@ -160,7 +160,16 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_fold
     with open(report_file, 'w') as f:
         f.write(report_text)
 
-    return report_text, wrong_pages_list
+    # archivates pages files
+    print('ARCHIVATING....')
+    files_for_archiving = os.listdir(undecoded_pages_folder)
+    if files_for_archiving:
+        with zipfile.ZipFile(f'{undecoded_pages_folder}/undecoded_pages.zip', mode='w') as archive:
+            for file in files_for_archiving:
+                print(file)
+                archive.write(filename=f'{undecoded_pages_folder}/{file}', arcname=file)
+
+    return report_text #, wrong_pages_list
 
     
     # print('make up a report ...', end=' ')
@@ -348,15 +357,10 @@ async def run_script(update, context):
     general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page)
     save_list_to_csv(general_decode_list, res_csv_file)
     save_log(log_dict, log_file)
-
-    print('log_dict =', log_dict) ##
-    report_text, wrong_pages_list = makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder)
-    print(report_text)
-    print('wrong_pages_list =', wrong_pages_list)
-
-
-
-    # sends outcome file from bot to customer
+    makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder)
+    
+    # sends outcome file via toelegram bot to customer
+    print('send result csv')
     if general_decode_list:
         with open(res_csv_file, 'rb') as f:
             await context.bot.send_document(chat_id=update.message.chat_id, document=f)
@@ -365,6 +369,16 @@ async def run_script(update, context):
         print(message_text)
         await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
 
+    # sends report
+    print('send report file')
+    with open(report_file, 'rb') as f:
+        await context.bot.send_document(chat_id=update.message.chat_id, document=f)   
+
+    # sends archive with unrecognized pdf pages
+    print('send zip archive')
+    if os.path.exists(f'{undecoded_pages_folder}/undecoded_pages.zip'):
+        with open(f'{undecoded_pages_folder}/undecoded_pages.zip', 'rb') as f:
+            await context.bot.send_document(chat_id=update.message.chat_id, document=f)       
 
 ##################
 if __name__ == '__main__':
