@@ -2,4 +2,5 @@ venv/
 Processings/
 Source_file/*.pdf
 test-files/*.pdf
+test-files/*
 config.ini

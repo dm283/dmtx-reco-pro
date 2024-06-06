@@ -119,32 +119,34 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file):
         if cnt_decoded_elems < dmtx_cnt_per_page:
             page_name = k.partition('.')[0][4:]
             wrong_pages_list.append(page_name)
-            substr_report_unreco_pages += f'[ page-{page_name} ]:  {cnt_decoded_elems}\n'
+            substr_report_unreco_pages += f'\n[ page-{page_name} ]: {cnt_decoded_elems}'
 
             substr_elems_list = str()
             for n, e in enumerate(log_dict[k]):
-                s = f"\n{' '*12+' '*len(page_name)}" if n > 0 else ''
+                s = f"\n{' '*20+' '*len(page_name)}" if n > 0 else ''
                 substr_elems_list += f'{s}{n}) {e}'
 
-            substr_report_decoded_elems += f'[ page-{page_name} ]:  {substr_elems_list}'
             if cnt_decoded_elems == 0:
                 cnt_unreco_totally += 1
             else:
                 cnt_unreco_partly += 1
+                substr_report_decoded_elems += f'\n[ page-{page_name} ]:    {substr_elems_list}'
             
 
-    report_text = f"""=== ОТЧЕТ БОТА ===
-обработано {cnt_pages} страниц по {dmtx_cnt_per_page} элементов
-распознано {cnt_elems} элементов
-распознано полностью {cnt_pages - cnt_unreco_partly - cnt_unreco_totally} страниц
-распознано частично {cnt_unreco_partly} страниц
-нераспознано {cnt_unreco_totally} страниц
-
-нераспознанные/частично распознанные страницы c кол-вом успешно распознанных элементов:
-{substr_report_unreco_pages}
-распознанные элементы на частично распознанных страницах:
-{substr_report_decoded_elems}
+    report_text = f"""=== ОТЧЕТ БОТА ===\n
+обработано страниц всего:            {cnt_pages} (по {dmtx_cnt_per_page} элемента на страницу максимально)
+распознано элементов:                  {cnt_elems} 
+распознано страниц полностью: {cnt_pages - cnt_unreco_partly - cnt_unreco_totally} 
+распознано страниц частично:    {cnt_unreco_partly} 
+нераспознано страниц:                 {cnt_unreco_totally} 
 """
+    if substr_report_unreco_pages:
+        report_text += f'\nнераспознанные/частично распознанные страницы и кол-во успешно распознанных элементов:\
+{substr_report_unreco_pages}'
+    if substr_report_decoded_elems:
+        report_text += f'\n\nраспознанные элементы на частично распознанных страницах:\
+{substr_report_decoded_elems}'
+
     with open(report_file, 'w') as f:
         f.write(report_text)
 
@@ -285,7 +287,7 @@ async def run_script(update, context):
         BOT_DOCUMENT = msg.document
 
         if not msg.caption:
-            message_text = 'укажите кол-во элементов на странице'
+            message_text = 'укажите максимальное кол-во элементов на одной странице'
             print(message_text)
             await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
             BOT_STATUS = 'quantity_wait'
@@ -344,8 +346,13 @@ async def run_script(update, context):
 
 
     # sends outcome file from bot to customer
-    with open(res_csv_file, 'rb') as f:
-        await context.bot.send_document(chat_id=update.message.chat_id, document=f)
+    if general_decode_list:
+        with open(res_csv_file, 'rb') as f:
+            await context.bot.send_document(chat_id=update.message.chat_id, document=f)
+    else:
+        message_text = 'распознано 0 элементов'
+        print(message_text)
+        await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
 
 
 ##################
