@@ -1,4 +1,4 @@
-import os, sys, random, configparser, logging, time
+import os, sys, shutil, random, configparser, logging, time
 from pikepdf import Pdf
 from pdf2image import convert_from_path
 import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
@@ -38,16 +38,21 @@ def create_processing_folders():
     source_pdf_file_folder = os.path.join(processing_folder, '1_source_pdf_file')
     pdf_pages_folder = os.path.join(processing_folder, '2_pdf_pages')
     jpg_files_folder = os.path.join(processing_folder, '3_jpg_files')
+    undecoded_pages_folder = os.path.join(processing_folder, '4_undecoded_pages')
     res_csv_file = os.path.join(processing_folder, 'res_decoded_dmtx.csv')
     log_file = os.path.join(processing_folder, 'log.txt')
     report_file = os.path.join(processing_folder, 'bot_report.txt')
 
-    os.mkdir(processing_folder)
-    os.mkdir(source_pdf_file_folder)
-    os.mkdir(pdf_pages_folder)
-    os.mkdir(jpg_files_folder)
+    # os.mkdir(processing_folder)
+    # os.mkdir(source_pdf_file_folder)
+    # os.mkdir(pdf_pages_folder)
+    # os.mkdir(jpg_files_folder)
+    # os.mkdir(undecoded_pages_folder)
 
-    return source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, report_file
+    for folder in [processing_folder, source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, undecoded_pages_folder]:
+        os.mkdir(folder)
+
+    return source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, report_file, undecoded_pages_folder
 
 
 def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
@@ -102,7 +107,7 @@ def save_log(log_dict, log_file):
     print(f'ok. saved to {log_file} file')
 
 
-def makeup_report(log_dict, dmtx_cnt_per_page, report_file):
+def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder):
     # makes up a report with quantity of un-/successful handlings of pages
     cnt_pages = int()
     cnt_elems = int()
@@ -132,6 +137,11 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file):
                 cnt_unreco_partly += 1
                 substr_report_decoded_elems += f'\n[ page-{page_name} ]:    {substr_elems_list}'
             
+            # copying un/partly reco pages into sprcial folder
+            file_name_source = f'{pdf_pages_folder}/{page_name}.pdf'
+            file_name_distance = f'{undecoded_pages_folder}/{page_name}.pdf'
+            if os.path.exists(file_name_source):
+                shutil.copyfile(file_name_source, file_name_distance)
 
     report_text = f"""=== ОТЧЕТ БОТА ===\n
 обработано страниц всего:            {cnt_pages} (по {dmtx_cnt_per_page} элемента на страницу максимально)
@@ -320,7 +330,8 @@ async def run_script(update, context):
 
     print('run script', 'file =', BOT_DOCUMENT.file_name, 'timeout_dmtx_decode = ', timeout_dmtx_decode,
           'dmtx_cnt_per_page = ', dmtx_cnt_per_page)
-    source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, report_file = create_processing_folders()
+    source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, \
+        report_file, undecoded_pages_folder = create_processing_folders()
 
     # download file from telegram
     f = await context.bot.get_file(BOT_DOCUMENT)  #msg.document
@@ -339,7 +350,7 @@ async def run_script(update, context):
     save_log(log_dict, log_file)
 
     print('log_dict =', log_dict) ##
-    report_text, wrong_pages_list = makeup_report(log_dict, dmtx_cnt_per_page, report_file)
+    report_text, wrong_pages_list = makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder)
     print(report_text)
     print('wrong_pages_list =', wrong_pages_list)
 
