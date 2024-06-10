@@ -150,6 +150,8 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_fold
 распознано страниц частично:    {cnt_unreco_partly} 
 нераспознано страниц:                 {cnt_unreco_totally} 
 """
+    if substr_report_unreco_pages or substr_report_decoded_elems:
+        report_text += '\nвнимание (!) - нумерация страниц в следующих списках начинается с нуля (0)\n'
     if substr_report_unreco_pages:
         report_text += f'\nнераспознанные/частично распознанные страницы и кол-во успешно распознанных элементов:\
 {substr_report_unreco_pages}'
