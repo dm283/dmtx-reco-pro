@@ -345,7 +345,7 @@ async def run_script(update, context):
         report_file, undecoded_pages_folder = create_processing_folders()
 
     # download file from telegram
-    f = await context.bot.get_file(BOT_DOCUMENT)  #msg.document
+    f = await context.bot.get_file(BOT_DOCUMENT, read_timeout=2000.0)  #msg.document
     source_pdf_file = os.path.join(source_pdf_file_folder, BOT_DOCUMENT.file_name)  #msg.document.file_name
     await f.download_to_drive(custom_path=source_pdf_file, read_timeout=2000.0)
     message_text = 'принято. ожидайте ответа'
