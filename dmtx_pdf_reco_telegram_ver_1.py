@@ -1,4 +1,4 @@
-import os, sys, random, configparser, logging, time
+import os, sys, shutil, random, configparser, logging, time, zipfile
 from pikepdf import Pdf
 from pdf2image import convert_from_path
 import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
@@ -23,7 +23,7 @@ logging.basicConfig(
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
-TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
+TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None] #
 
 BOT_STATUS = 'file_wait'
 BOT_DOCUMENT = ''
@@ -38,15 +38,21 @@ def create_processing_folders():
     source_pdf_file_folder = os.path.join(processing_folder, '1_source_pdf_file')
     pdf_pages_folder = os.path.join(processing_folder, '2_pdf_pages')
     jpg_files_folder = os.path.join(processing_folder, '3_jpg_files')
+    undecoded_pages_folder = os.path.join(processing_folder, '4_undecoded_pages')
     res_csv_file = os.path.join(processing_folder, 'res_decoded_dmtx.csv')
     log_file = os.path.join(processing_folder, 'log.txt')
+    report_file = os.path.join(processing_folder, 'bot_report.txt')
 
-    os.mkdir(processing_folder)
-    os.mkdir(source_pdf_file_folder)
-    os.mkdir(pdf_pages_folder)
-    os.mkdir(jpg_files_folder)
+    # os.mkdir(processing_folder)
+    # os.mkdir(source_pdf_file_folder)
+    # os.mkdir(pdf_pages_folder)
+    # os.mkdir(jpg_files_folder)
+    # os.mkdir(undecoded_pages_folder)
 
-    return source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file
+    for folder in [processing_folder, source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, undecoded_pages_folder]:
+        os.mkdir(folder)
+
+    return source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, report_file, undecoded_pages_folder
 
 
 def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
@@ -99,6 +105,81 @@ def save_log(log_dict, log_file):
             rec = f'{k} - decoded {len(log_dict[k])} datamatrixes' + '\n'
             f.write(rec)
     print(f'ok. saved to {log_file} file')
+
+
+def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder):
+    # makes up a report with quantity of un-/successful handlings of pages
+    cnt_pages = int()
+    cnt_elems = int()
+    # wrong_pages_list = list()
+    cnt_unreco_partly = int()
+    cnt_unreco_totally = int()
+    substr_report_unreco_pages = str()
+    substr_report_decoded_elems = str()
+
+    for k in log_dict:
+        cnt_pages += 1
+        cnt_decoded_elems = len(log_dict[k])
+        cnt_elems += cnt_decoded_elems
+        if cnt_decoded_elems < dmtx_cnt_per_page:
+            page_name = k.partition('.')[0][4:]
+            # wrong_pages_list.append(page_name)
+            substr_report_unreco_pages += f'\n[ page-{page_name} ]: {cnt_decoded_elems}'
+
+            substr_elems_list = str()
+            for n, e in enumerate(log_dict[k]):
+                s = f"\n{' '*20+' '*len(page_name)}" if n > 0 else ''
+                substr_elems_list += f'{s}{n}) {e}'
+
+            if cnt_decoded_elems == 0:
+                cnt_unreco_totally += 1
+            else:
+                cnt_unreco_partly += 1
+                substr_report_decoded_elems += f'\n[ page-{page_name} ]:    {substr_elems_list}'
+            
+            # copying un/partly recognized pages into sprcial folder
+            file_name_source = f'{pdf_pages_folder}/{page_name}.pdf'
+            file_name_distance = f'{undecoded_pages_folder}/{page_name}.pdf'
+            if os.path.exists(file_name_source):
+                shutil.copyfile(file_name_source, file_name_distance)            
+
+    report_text = f"""=== ОТЧЕТ БОТА ===\n
+обработано страниц всего:            {cnt_pages} (по {dmtx_cnt_per_page} элемента на страницу максимально)
+распознано элементов:                  {cnt_elems} 
+распознано страниц полностью: {cnt_pages - cnt_unreco_partly - cnt_unreco_totally} 
+распознано страниц частично:    {cnt_unreco_partly} 
+нераспознано страниц:                 {cnt_unreco_totally} 
+"""
+    if substr_report_unreco_pages or substr_report_decoded_elems:
+        report_text += '\nвнимание (!) - нумерация страниц в следующих списках начинается с нуля (0)\n'
+    if substr_report_unreco_pages:
+        report_text += f'\nнераспознанные/частично распознанные страницы и кол-во успешно распознанных элементов:\
+{substr_report_unreco_pages}'
+    if substr_report_decoded_elems:
+        report_text += f'\n\nраспознанные элементы на частично распознанных страницах:\
+{substr_report_decoded_elems}'
+
+    with open(report_file, 'w') as f:
+        f.write(report_text)
+
+    # archivates pages files
+    print('ARCHIVATING....')
+    files_for_archiving = os.listdir(undecoded_pages_folder)
+    if files_for_archiving:
+        with zipfile.ZipFile(f'{undecoded_pages_folder}/undecoded_pages.zip', mode='w') as archive:
+            for file in files_for_archiving:
+                print(file)
+                archive.write(filename=f'{undecoded_pages_folder}/{file}', arcname=file)
+
+    return report_text #, wrong_pages_list
+
+    
+    # print('make up a report ...', end=' ')
+    # with open(log_file, 'w') as f:
+    #     for k in log_dict:
+    #         rec = f'{k} - decoded {len(log_dict[k])} datamatrixes' + '\n'
+    #         f.write(rec)
+    # print(f'ok. saved to {log_file} file')
 
 
 def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
@@ -227,7 +308,7 @@ async def run_script(update, context):
         BOT_DOCUMENT = msg.document
 
         if not msg.caption:
-            message_text = 'укажите кол-во элементов на странице'
+            message_text = 'укажите максимальное кол-во элементов на одной странице'
             print(message_text)
             await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
             BOT_STATUS = 'quantity_wait'
@@ -260,7 +341,8 @@ async def run_script(update, context):
 
     print('run script', 'file =', BOT_DOCUMENT.file_name, 'timeout_dmtx_decode = ', timeout_dmtx_decode,
           'dmtx_cnt_per_page = ', dmtx_cnt_per_page)
-    source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file = create_processing_folders()
+    source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, \
+        report_file, undecoded_pages_folder = create_processing_folders()
 
     # download file from telegram
     f = await context.bot.get_file(BOT_DOCUMENT)  #msg.document
@@ -277,12 +359,28 @@ async def run_script(update, context):
     general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page)
     save_list_to_csv(general_decode_list, res_csv_file)
     save_log(log_dict, log_file)
+    makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder)
+    
+    # sends outcome file via toelegram bot to customer
+    print('send result csv')
+    if general_decode_list:
+        with open(res_csv_file, 'rb') as f:
+            await context.bot.send_document(chat_id=update.message.chat_id, document=f)
+    else:
+        message_text = 'распознано 0 элементов'
+        print(message_text)
+        await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
 
+    # sends report
+    print('send report file')
+    with open(report_file, 'rb') as f:
+        await context.bot.send_document(chat_id=update.message.chat_id, document=f)   
 
-    # sends outcome file from bot to customer
-    with open(res_csv_file, 'rb') as f:
-        await context.bot.send_document(chat_id=update.message.chat_id, document=f)
-
+    # sends archive with unrecognized pdf pages
+    print('send zip archive')
+    if os.path.exists(f'{undecoded_pages_folder}/undecoded_pages.zip'):
+        with open(f'{undecoded_pages_folder}/undecoded_pages.zip', 'rb') as f:
+            await context.bot.send_document(chat_id=update.message.chat_id, document=f)       
 
 ##################
 if __name__ == '__main__':
