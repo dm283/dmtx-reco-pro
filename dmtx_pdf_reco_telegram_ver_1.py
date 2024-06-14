@@ -1,4 +1,4 @@
-import os, sys, shutil, random, configparser, logging, time, zipfile
+import os, sys, shutil, random, configparser, logging, time, zipfile, asyncio
 from pikepdf import Pdf
 from pdf2image import convert_from_path
 import pylibdmtx.pylibdmtx as dmtx_lib, cv2, datetime, os, sys, csv
@@ -23,13 +23,16 @@ logging.basicConfig(
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
-TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None] # full list
+TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, ] #, 20000, 30000, 50000, None] # full list
 
 BOT_STATUS = 'file_wait'
 BOT_DOCUMENT = ''
 
+PROCESS_ID = int()
+TIME_GAP = 0.05
 
-def create_processing_folders():
+
+async def create_processing_folders():
     # creates folders for current processing
     current_processing_folder = datetime.datetime.now().strftime('%Y-%m-%d %H.%M.%S')
     processing_folder = os.path.join(PROCESSINGS_COMMON_FOLDER, current_processing_folder)
@@ -43,19 +46,13 @@ def create_processing_folders():
     log_file = os.path.join(processing_folder, 'log.txt')
     report_file = os.path.join(processing_folder, 'bot_report.txt')
 
-    # os.mkdir(processing_folder)
-    # os.mkdir(source_pdf_file_folder)
-    # os.mkdir(pdf_pages_folder)
-    # os.mkdir(jpg_files_folder)
-    # os.mkdir(undecoded_pages_folder)
-
     for folder in [processing_folder, source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, undecoded_pages_folder]:
         os.mkdir(folder)
 
     return source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, report_file, undecoded_pages_folder
 
 
-def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
+async def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
     # load source pdf file and split it to distinct pages
     print('load pdf file ...', end=' ')
     pdf = Pdf.open(source_pdf_file)
@@ -63,14 +60,17 @@ def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
 
     print('splitting file to distinct pages ...')
     for n, page in enumerate(pdf.pages):
-        print(n, end='\r')
+        print(n, 'time gap =', TIME_GAP) #end='\r')
         dst = Pdf.new()
         dst.pages.append(page)
         dst.save(f'{pdf_pages_folder}/{n}.pdf')
+
+        await asyncio.sleep(TIME_GAP) ####
+
     print(f'ok. splitted to {n+1} pages')
 
 
-def convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder):
+async def convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder):
     # convert pdf pages to jpg files
     counter = int()
 
@@ -79,14 +79,17 @@ def convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder):
 
     print('converting pdf to jpg ...')
     for file in pdf_files:
-        print(file, end='\r')
+        print(file, 'time gap =', TIME_GAP) #, end='\r')
         image = convert_from_path( os.path.join(pdf_pages_folder, file) )
         image[0].save(f'{jpg_files_folder}/page'+ str(counter) +'.jpg', 'JPEG')
         counter += 1
+
+        await asyncio.sleep(TIME_GAP) ####
+
     print(f'ok. converted {counter} files')
 
 
-def save_list_to_csv(source_list, res_csv_file):
+async def save_list_to_csv(source_list, res_csv_file):
     # save list to csv file
     rows_for_csv = [ [e] for e in source_list ]
 
@@ -97,7 +100,7 @@ def save_list_to_csv(source_list, res_csv_file):
     print(f'ok. saved to {res_csv_file} file')
 
 
-def save_log(log_dict, log_file):
+async def save_log(log_dict, log_file):
     # save file - res records
     print('saving logs ...', end=' ')
     with open(log_file, 'w') as f:
@@ -107,7 +110,7 @@ def save_log(log_dict, log_file):
     print(f'ok. saved to {log_file} file')
 
 
-def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder):
+async def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder):
     # makes up a report with quantity of un-/successful handlings of pages
     cnt_pages = int()
     cnt_elems = int()
@@ -173,16 +176,8 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_fold
 
     return report_text #, wrong_pages_list
 
-    
-    # print('make up a report ...', end=' ')
-    # with open(log_file, 'w') as f:
-    #     for k in log_dict:
-    #         rec = f'{k} - decoded {len(log_dict[k])} datamatrixes' + '\n'
-    #         f.write(rec)
-    # print(f'ok. saved to {log_file} file')
 
-
-def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
+async def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
     #  decodes datamatrix form jpg file
     general_decode_list = list()
     log_dict = dict()
@@ -195,15 +190,13 @@ def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
         print(file, end=' ')
         image = cv2.imread( os.path.join(jpg_files_folder, file) )
 
-        # decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=timeout_dmtx_decode) ]
-
         timeout = timeout_dmtx_decode
         decode_list = list()
-        # TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None]
         timeout_list_pointer = TIMEOUT_LIST.index(timeout_dmtx_decode)
         while len(decode_list) < dmtx_cnt_per_page:
+            await asyncio.sleep(TIME_GAP) ####
             decode_list = [ r.data.decode() for r in dmtx_lib.decode(image, timeout=timeout) ]
-            print( 'decoded elements =', len(decode_list) )
+            print( 'decoded elements =', len(decode_list), 'time gap =', TIME_GAP )
             if len(decode_list) < dmtx_cnt_per_page:
                 timeout_list_pointer += 1
                 if (timeout_list_pointer + 1) <= len(TIMEOUT_LIST):
@@ -213,39 +206,16 @@ def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
                 else:
                     print(file, 'maximum timeout')
                     break
-
-
+            
         log_dict[file] = decode_list
         general_decode_list += decode_list
+
     print(f'ok. decoded { len(general_decode_list) } datamartixes')
 
     return general_decode_list, log_dict
 
 
-# def timeout_count(caption):
-#     # checks correct format of caption and estimates timeout for dmtx decoding
-#     try:
-#         dmtx_cnt_per_page = int(caption)
-#         if dmtx_cnt_per_page < 1:
-#             raise Exception
-#     except:
-#         return 'err', None, None
-
-#     #TIMEOUT_DMTX_DECODE = 2000  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
-#     if dmtx_cnt_per_page <= 20:
-#         timeout_dmtx_decode = 2000
-#     if dmtx_cnt_per_page <= 10:
-#         timeout_dmtx_decode = 500
-#     if dmtx_cnt_per_page <= 5:
-#         timeout_dmtx_decode = 100
-#     if dmtx_cnt_per_page > 20:
-#         timeout_dmtx_decode = None
-#     print(f'dmtx_quantity = {dmtx_cnt_per_page}  timeout = {timeout_dmtx_decode}')
-
-#     return 'ok', timeout_dmtx_decode, dmtx_cnt_per_page
-
-
-def timeout_count(dmtx_cnt_per_page):
+async def timeout_count(dmtx_cnt_per_page):
     # estimates timeout for dmtx decoding
     #TIMEOUT_DMTX_DECODE = 2000  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
     if dmtx_cnt_per_page <= 20:
@@ -256,12 +226,16 @@ def timeout_count(dmtx_cnt_per_page):
         timeout_dmtx_decode = 100
     if dmtx_cnt_per_page > 20:
         timeout_dmtx_decode = 2000 # None
+
+    if timeout_dmtx_decode not in TIMEOUT_LIST:
+        timeout_dmtx_decode = TIMEOUT_LIST[0]
+
     print(f'dmtx_quantity = {dmtx_cnt_per_page}  timeout = {timeout_dmtx_decode}')
 
     return timeout_dmtx_decode
 
 
-def income_elems_per_page_cnt_check(caption):
+async def income_elems_per_page_cnt_check(caption):
     # checks correct format of caption
     try:
         dmtx_cnt_per_page = int(caption)
@@ -273,76 +247,35 @@ def income_elems_per_page_cnt_check(caption):
     return 'ok', dmtx_cnt_per_page
 
 
-async def run_script(update, context):
-    # main function
-    global BOT_STATUS, BOT_DOCUMENT
+# async def test_foo(context):
+#     #
+#     job = context.job
+#     process_id = job.data['process_id']
+#     message = job.data['message']
 
-    msg = update.message
+#     print(f'NEW PROCESS # [ {process_id} ]HAS STARTED!', message)
+#     for i in range(10):
+#         print(f'process # [ {process_id} ]: ', i)
+#         await asyncio.sleep(2)
 
-    if msg.text == 'help':
-            message_text = ('алгоритм работы с ботом:\n- отправьте pdf-файл с указанием кол-ва элементов на стр.\n' +
-                '- если вы забыли указать кол-во, отправьте его следующим сообщением\n' +
-                '- для обнуления введенных данных отправьте new')
-            print(message_text)
-            await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
-            return 0
 
-    if msg.text == 'new':
-        BOT_STATUS = 'file_wait'
-        BOT_DOCUMENT = ''
-        return 0
+async def test_decode(context):
+    #
+    global PROCESS_ID, TIME_GAP
 
-    if BOT_STATUS == 'file_wait':
-        if not msg.document or msg.document.mime_type != 'application/pdf':
-            message_text = 'ошибка. отправьте файл pdf'
-            print(message_text)
-            await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
-            return 1
-        
-        # if msg.document.mime_type != 'application/pdf':
-        #     message_text = 'ошибка. некорректный тип файла, не pdf'
-        #     print(message_text)
-        #     await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
-        #     return 1
+    job = context.job
+    process_id = job.data['process_id']
+    timeout_dmtx_decode = job.data['timeout_dmtx_decode']
+    dmtx_cnt_per_page = job.data['dmtx_cnt_per_page']
+    msg = job.data['msg']
+    update = job.data['update']
 
-        BOT_DOCUMENT = msg.document
-
-        if not msg.caption:
-            message_text = 'укажите максимальное кол-во элементов на одной странице'
-            print(message_text)
-            await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
-            BOT_STATUS = 'quantity_wait'
-            return 1
-        
-        caption = msg.caption
-
-    elif BOT_STATUS == 'quantity_wait':
-        caption = msg.text
-
-    print('caption = ', caption)
-
-    res, dmtx_cnt_per_page = income_elems_per_page_cnt_check(caption)
-    if res == 'err':
-        message_text = 'ошибка. указано ошибочное кол-во элементов на странице'
-        print(message_text)
-        await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
-        return 1
-
-    elif res == 'ok':
-        timeout_dmtx_decode = timeout_count(dmtx_cnt_per_page)
-    #res, timeout_dmtx_decode, dmtx_cnt_per_page = timeout_count(caption)
-    # if res == 'err':
-    #     message_text = 'ошибка. в подписи к файлу не указано/ошибочное кол-во элементов на странице'
-    #     print(message_text)
-    #     #await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
-    #     return 1
-
-    BOT_STATUS = 'file_wait'
+    print(f'NEW PROCESS # [ {process_id} ]HAS STARTED! TIME GAP = ', TIME_GAP)
 
     print('run script', 'file =', BOT_DOCUMENT.file_name, 'timeout_dmtx_decode = ', timeout_dmtx_decode,
           'dmtx_cnt_per_page = ', dmtx_cnt_per_page)
     source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, \
-        report_file, undecoded_pages_folder = create_processing_folders()
+        report_file, undecoded_pages_folder = await create_processing_folders()
 
     # download file from telegram
     f = await context.bot.get_file(BOT_DOCUMENT, read_timeout=2000.0)  #msg.document
@@ -354,18 +287,18 @@ async def run_script(update, context):
 
 
     # common functions - incoming pdf file handling and decoding of datamatrixes
-    split_pdf_to_pages(source_pdf_file, pdf_pages_folder)
-    convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder)
-    general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page)
-    save_list_to_csv(general_decode_list, res_csv_file)
-    save_log(log_dict, log_file)
-    makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder)
+    await split_pdf_to_pages(source_pdf_file, pdf_pages_folder)
+    await convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder)
+    general_decode_list, log_dict = await decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page)
+    await save_list_to_csv(general_decode_list, res_csv_file)
+    await save_log(log_dict, log_file)
+    await makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder)
     
     # sends outcome file via toelegram bot to customer
     print('send result csv')
     if general_decode_list:
         with open(res_csv_file, 'rb') as f:
-            await context.bot.send_document(chat_id=update.message.chat_id, document=f)
+            await context.bot.send_document(chat_id=update.message.chat_id, document=f, connect_timeout=2000.0)
     else:
         message_text = 'распознано 0 элементов'
         print(message_text)
@@ -374,13 +307,131 @@ async def run_script(update, context):
     # sends report
     print('send report file')
     with open(report_file, 'rb') as f:
-        await context.bot.send_document(chat_id=update.message.chat_id, document=f)   
+        await context.bot.send_document(chat_id=update.message.chat_id, document=f, connect_timeout=2000.0)   
 
     # sends archive with unrecognized pdf pages
     print('send zip archive')
     if os.path.exists(f'{undecoded_pages_folder}/undecoded_pages.zip'):
         with open(f'{undecoded_pages_folder}/undecoded_pages.zip', 'rb') as f:
-            await context.bot.send_document(chat_id=update.message.chat_id, document=f)       
+            await context.bot.send_document(chat_id=update.message.chat_id, document=f, connect_timeout=2000.0)      
+
+    PROCESS_ID -= 1
+
+
+async def run_script(update, context):
+    # main function
+    global BOT_STATUS, BOT_DOCUMENT
+    global PROCESS_ID, TIME_GAP
+
+    msg = update.message
+
+    # await asyncio.create_task( test_foo(txt=msg.text) )
+    # PROCESS_ID += 1
+    # context.job_queue.run_once(test_foo, 0, data={
+    #     'process_id': PROCESS_ID,
+    #     'message': msg.text
+    # })
+    # return 0
+
+    if msg.text == 'help':
+            message_text = ('алгоритм работы с ботом:\n- отправьте pdf-файл с указанием кол-ва элементов на стр.\n' +
+                '- если вы забыли указать кол-во, отправьте его следующим сообщением\n' +
+                '- для обнуления введенных данных отправьте new')
+            print(message_text)
+            await context.bot.send_message(chat_id=msg.chat_id, text=message_text, connect_timeout=2000.0)
+            return 0
+
+    if msg.text == 'new':
+        BOT_STATUS = 'file_wait'
+        BOT_DOCUMENT = ''
+        return 0
+
+    if BOT_STATUS == 'file_wait':
+        if not msg.document or msg.document.mime_type != 'application/pdf':
+            message_text = 'ошибка. отправьте файл pdf'
+            print(message_text)
+            await context.bot.send_message(chat_id=msg.chat_id, text=message_text, connect_timeout=2000.0)
+            return 1
+
+        BOT_DOCUMENT = msg.document
+
+        if not msg.caption:
+            message_text = 'укажите максимальное кол-во элементов на одной странице'
+            print(message_text)
+            await context.bot.send_message(chat_id=msg.chat_id, text=message_text, connect_timeout=2000.0)
+            BOT_STATUS = 'quantity_wait'
+            return 1
+        
+        caption = msg.caption
+
+    elif BOT_STATUS == 'quantity_wait':
+        caption = msg.text
+
+    print('caption = ', caption)
+
+    res, dmtx_cnt_per_page = await income_elems_per_page_cnt_check(caption)
+    if res == 'err':
+        message_text = 'ошибка. указано ошибочное кол-во элементов на странице'
+        print(message_text)
+        await context.bot.send_message(chat_id=msg.chat_id, text=message_text, connect_timeout=2000.0)
+        return 1
+
+    elif res == 'ok':
+        timeout_dmtx_decode = await timeout_count(dmtx_cnt_per_page)
+
+    BOT_STATUS = 'file_wait'
+    
+    PROCESS_ID += 1
+    context.job_queue.run_once(test_decode, 0, data={
+        'process_id': PROCESS_ID,
+        'timeout_dmtx_decode': timeout_dmtx_decode,
+        'dmtx_cnt_per_page': dmtx_cnt_per_page,
+        'msg': msg,
+        'update': update,
+    })
+
+    # print('run script', 'file =', BOT_DOCUMENT.file_name, 'timeout_dmtx_decode = ', timeout_dmtx_decode,
+    #       'dmtx_cnt_per_page = ', dmtx_cnt_per_page)
+    # source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, res_csv_file, log_file, \
+    #     report_file, undecoded_pages_folder = create_processing_folders()
+
+    # # download file from telegram
+    # f = await context.bot.get_file(BOT_DOCUMENT, read_timeout=2000.0)  #msg.document
+    # source_pdf_file = os.path.join(source_pdf_file_folder, BOT_DOCUMENT.file_name)  #msg.document.file_name
+    # await f.download_to_drive(custom_path=source_pdf_file, read_timeout=2000.0)
+    # message_text = 'принято. ожидайте ответа'
+    # print(message_text)
+    # await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
+
+
+    # # common functions - incoming pdf file handling and decoding of datamatrixes
+    # split_pdf_to_pages(source_pdf_file, pdf_pages_folder)
+    # convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder)
+    # general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page)
+    # save_list_to_csv(general_decode_list, res_csv_file)
+    # save_log(log_dict, log_file)
+    # makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_folder, pdf_pages_folder)
+    
+    # # sends outcome file via toelegram bot to customer
+    # print('send result csv')
+    # if general_decode_list:
+    #     with open(res_csv_file, 'rb') as f:
+    #         await context.bot.send_document(chat_id=update.message.chat_id, document=f)
+    # else:
+    #     message_text = 'распознано 0 элементов'
+    #     print(message_text)
+    #     await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
+
+    # # sends report
+    # print('send report file')
+    # with open(report_file, 'rb') as f:
+    #     await context.bot.send_document(chat_id=update.message.chat_id, document=f)   
+
+    # # sends archive with unrecognized pdf pages
+    # print('send zip archive')
+    # if os.path.exists(f'{undecoded_pages_folder}/undecoded_pages.zip'):
+    #     with open(f'{undecoded_pages_folder}/undecoded_pages.zip', 'rb') as f:
+    #         await context.bot.send_document(chat_id=update.message.chat_id, document=f)       
 
 ##################
 if __name__ == '__main__':
