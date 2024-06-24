@@ -23,7 +23,7 @@ logging.basicConfig(
 PROCESSINGS_COMMON_FOLDER = 'Processings'
 if not os.path.exists(PROCESSINGS_COMMON_FOLDER):
     os.mkdir(PROCESSINGS_COMMON_FOLDER)
-TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, 20000, 30000, 50000, None] # full list
+TIMEOUT_LIST = [100, 500, 2000, 5000, 10000, ] # 20000, 30000, 50000, None] # full list
 
 BOT_STATUS = 'file_wait'
 BOT_DOCUMENT = ''
@@ -42,12 +42,6 @@ def create_processing_folders():
     res_csv_file = os.path.join(processing_folder, 'res_decoded_dmtx.csv')
     log_file = os.path.join(processing_folder, 'log.txt')
     report_file = os.path.join(processing_folder, 'bot_report.txt')
-
-    # os.mkdir(processing_folder)
-    # os.mkdir(source_pdf_file_folder)
-    # os.mkdir(pdf_pages_folder)
-    # os.mkdir(jpg_files_folder)
-    # os.mkdir(undecoded_pages_folder)
 
     for folder in [processing_folder, source_pdf_file_folder, pdf_pages_folder, jpg_files_folder, undecoded_pages_folder]:
         os.mkdir(folder)
@@ -80,7 +74,7 @@ def convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder):
     print('converting pdf to jpg ...')
     for file in pdf_files:
         print(file, end='\r')
-        image = convert_from_path( os.path.join(pdf_pages_folder, file) )
+        image = convert_from_path( os.path.join(pdf_pages_folder, file), dpi=400, )
         image[0].save(f'{jpg_files_folder}/page'+ str(counter) +'.jpg', 'JPEG')
         counter += 1
     print(f'ok. converted {counter} files')
@@ -173,14 +167,6 @@ def makeup_report(log_dict, dmtx_cnt_per_page, report_file, undecoded_pages_fold
 
     return report_text #, wrong_pages_list
 
-    
-    # print('make up a report ...', end=' ')
-    # with open(log_file, 'w') as f:
-    #     for k in log_dict:
-    #         rec = f'{k} - decoded {len(log_dict[k])} datamatrixes' + '\n'
-    #         f.write(rec)
-    # print(f'ok. saved to {log_file} file')
-
 
 def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
     #  decodes datamatrix form jpg file
@@ -220,29 +206,6 @@ def decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page):
     print(f'ok. decoded { len(general_decode_list) } datamartixes')
 
     return general_decode_list, log_dict
-
-
-# def timeout_count(caption):
-#     # checks correct format of caption and estimates timeout for dmtx decoding
-#     try:
-#         dmtx_cnt_per_page = int(caption)
-#         if dmtx_cnt_per_page < 1:
-#             raise Exception
-#     except:
-#         return 'err', None, None
-
-#     #TIMEOUT_DMTX_DECODE = 2000  # dmtx on page - timeout    20 - 2000   10 - 500   5 - 100   1 - 100
-#     if dmtx_cnt_per_page <= 20:
-#         timeout_dmtx_decode = 2000
-#     if dmtx_cnt_per_page <= 10:
-#         timeout_dmtx_decode = 500
-#     if dmtx_cnt_per_page <= 5:
-#         timeout_dmtx_decode = 100
-#     if dmtx_cnt_per_page > 20:
-#         timeout_dmtx_decode = None
-#     print(f'dmtx_quantity = {dmtx_cnt_per_page}  timeout = {timeout_dmtx_decode}')
-
-#     return 'ok', timeout_dmtx_decode, dmtx_cnt_per_page
 
 
 def timeout_count(dmtx_cnt_per_page):
@@ -299,12 +262,6 @@ async def run_script(update, context):
             await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
             return 1
         
-        # if msg.document.mime_type != 'application/pdf':
-        #     message_text = 'ошибка. некорректный тип файла, не pdf'
-        #     print(message_text)
-        #     await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
-        #     return 1
-
         BOT_DOCUMENT = msg.document
 
         if not msg.caption:
@@ -330,12 +287,6 @@ async def run_script(update, context):
 
     elif res == 'ok':
         timeout_dmtx_decode = timeout_count(dmtx_cnt_per_page)
-    #res, timeout_dmtx_decode, dmtx_cnt_per_page = timeout_count(caption)
-    # if res == 'err':
-    #     message_text = 'ошибка. в подписи к файлу не указано/ошибочное кол-во элементов на странице'
-    #     print(message_text)
-    #     #await context.bot.send_message(chat_id=msg.chat_id, text=message_text)
-    #     return 1
 
     BOT_STATUS = 'file_wait'
 
