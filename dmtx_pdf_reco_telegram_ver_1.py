@@ -64,17 +64,21 @@ def split_pdf_to_pages(source_pdf_file, pdf_pages_folder):
     print(f'ok. splitted to {n+1} pages')
 
 
-def convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder):
+def convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder, dmtx_cnt_per_page):
     # convert pdf pages to jpg files
     counter = int()
 
+    # if elements quantity per page is 1 then set dpi = 400, else 200 
+    # (because not every elements is decoded if dpi 400 and quantity of element 20 for example)
+    dpi = 400 if dmtx_cnt_per_page == 1 else 200
+        
     pdf_files = os.listdir(pdf_pages_folder)
     pdf_files.sort(key=lambda x: int(x.partition('.')[0]))
 
     print('converting pdf to jpg ...')
     for file in pdf_files:
         print(file, end='\r')
-        image = convert_from_path( os.path.join(pdf_pages_folder, file), dpi=400, )
+        image = convert_from_path( os.path.join(pdf_pages_folder, file), dpi=dpi, )
         image[0].save(f'{jpg_files_folder}/page'+ str(counter) +'.jpg', 'JPEG')
         counter += 1
     print(f'ok. converted {counter} files')
@@ -306,7 +310,7 @@ async def run_script(update, context):
 
     # common functions - incoming pdf file handling and decoding of datamatrixes
     split_pdf_to_pages(source_pdf_file, pdf_pages_folder)
-    convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder)
+    convert_pdf_to_jpg(pdf_pages_folder, jpg_files_folder, dmtx_cnt_per_page)
     general_decode_list, log_dict = decode_jpg_dmtx(jpg_files_folder, timeout_dmtx_decode, dmtx_cnt_per_page)
     save_list_to_csv(general_decode_list, res_csv_file)
     save_log(log_dict, log_file)
